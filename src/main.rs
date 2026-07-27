@@ -3,7 +3,7 @@
 // 零外部依赖，纯 std 实现
 //
 // 用法: opt_analyze [文件.opt] [慢帧阈值ms]
-// 示例: opt_analyze "test 100ms过滤.opt" 100
+// 示例: opt_analyze "capture.opt" 100
 // ═══════════════════════════════════════════════════════════════
 
 mod binary;
@@ -25,7 +25,7 @@ struct Args {
 
 fn parse_args() -> Args {
     let args: Vec<String> = env::args().collect();
-    let input = args.get(1).cloned().unwrap_or_else(|| "d:\\Project\\opt\\test 100ms过滤.opt".into());
+    let input = args.get(1).cloned().unwrap_or_else(|| "capture.opt".into());
     let threshold: f64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(100.0);
     Args { input, threshold }
 }
