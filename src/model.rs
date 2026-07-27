@@ -32,7 +32,57 @@ pub struct FuncAgg {
     pub max_self: f64,
     pub call_count: u32,
     pub frame_count: u32,
-    pub per_frame_self: Vec<f64>,
+    /// (frame_index, self_ms) — 仅记录函数有非零 self 的卡顿帧
+    pub per_frame_self: Vec<(usize, f64)>,
+}
+
+// ── 趋势分析产物 ──
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum TrendPattern {
+    /// 持续偏高: 出现率高 + 变异系数低
+    PersistentHigh,
+    /// 偶发尖峰: 出现率低 + 变异系数高
+    SporadicSpike,
+    /// 递增趋势
+    GradualIncrease,
+    /// 递减趋势
+    GradualDecrease,
+    /// 稳定: 出现率高 + 极低变异
+    Stable,
+}
+
+pub struct FuncTrend {
+    #[allow(dead_code)]
+    pub desc_idx: u32,
+    pub name: String,
+    pub file: String,
+    /// 逐帧 self_ms 序列 (按 slow_indices 顺序, 0.0 = 该帧未出现)
+    pub sparkline: Vec<f64>,
+    pub pattern: TrendPattern,
+    pub mean_ms: f64,
+    pub std_ms: f64,
+    /// 变异系数 CV = std/mean
+    pub cv: f64,
+    pub max_ms: f64,
+    /// 出现率 = 有非零值的帧数 / 总卡顿帧数
+    pub appearance_rate: f64,
+    /// 简单线性回归斜率 (ms/帧)
+    pub trend_slope: f64,
+}
+
+pub struct FuncCorrelation {
+    pub name_a: String,
+    pub name_b: String,
+    /// Pearson 相关系数 [-1.0, 1.0]
+    pub pearson: f64,
+    /// 同时出现高耗时的帧数
+    pub co_occurrence: usize,
+}
+
+pub struct TrendAnalysis {
+    pub func_trends: Vec<FuncTrend>,
+    pub correlations: Vec<FuncCorrelation>,
 }
 
 pub struct AnalysisResult {
@@ -76,4 +126,7 @@ pub struct AnalysisResult {
     // 关键路径
     pub critical_path: Vec<(String, String)>,
     pub max_depth: usize,
+
+    // 趋势分析
+    pub trend: TrendAnalysis,
 }

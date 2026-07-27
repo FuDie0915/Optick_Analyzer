@@ -11,12 +11,15 @@ mod parser;
 mod call_tree;
 mod stats;
 mod analyzer;
+mod trend;
 mod report;
+mod html;
 
 use std::env;
 use std::fs;
 use std::io::Read;
-use std::time::Instant;
+use std::path::Path;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 struct Args {
     input: String,
@@ -97,13 +100,34 @@ fn main() {
 
     report::print_report(&data, &result, &args.input);
 
+    // 生成 HTML 报告
+    let t4 = Instant::now();
+    let html_content = html::generate_html(&data, &result, &args.input);
+
+    // 文件名: {timestamp}_{original_opt_name}.html
+    let opt_stem = Path::new(&args.input)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("report");
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let html_path = format!("{}_{}.html", ts, opt_stem);
+
+    fs::write(&html_path, html_content.as_bytes()).expect("写入 HTML 报告失败");
+    let t_html = t4.elapsed();
+
+    println!("\n  HTML 报告已生成: {}", html_path);
+
     let total = t0.elapsed();
     eprintln!("\n── 耗时统计 ──");
-    eprintln!("  读取: {:.1} ms | 解析: {:.1} ms | 调用树: {:.1} ms | 分析: {:.1} ms | 总计: {:.1} ms",
+    eprintln!("  读取: {:.1} ms | 解析: {:.1} ms | 调用树: {:.1} ms | 分析: {:.1} ms | HTML: {:.1} ms | 总计: {:.1} ms",
         t_read.as_secs_f64() * 1000.0,
         t_parse.as_secs_f64() * 1000.0,
         t_tree.as_secs_f64() * 1000.0,
         t_analyze.as_secs_f64() * 1000.0,
+        t_html.as_secs_f64() * 1000.0,
         total.as_secs_f64() * 1000.0,
     );
 }

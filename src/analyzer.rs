@@ -109,10 +109,10 @@ pub fn analyze(data: &ParsedData, threshold: f64) -> AnalysisResult {
             }
         }
 
-        // 记录每帧的 self time (用于稳定性分析)
+        // 记录每帧的 self time (用于趋势/稳定性分析)
         for (desc_idx, frame_self) in &seen_in_frame {
             if let Some(agg) = func_map.get_mut(desc_idx) {
-                agg.per_frame_self.push(*frame_self);
+                agg.per_frame_self.push((fi, *frame_self));
                 agg.frame_count += 1;
             }
         }
@@ -138,7 +138,8 @@ pub fn analyze(data: &ParsedData, threshold: f64) -> AnalysisResult {
     let mut stability: Vec<(usize, f64, f64, f64)> = (0..all_funcs.len())
         .filter(|&i| all_funcs[i].per_frame_self.len() >= 2)
         .map(|i| {
-            let (m, s) = stats::mean_std(&all_funcs[i].per_frame_self);
+            let vals: Vec<f64> = all_funcs[i].per_frame_self.iter().map(|(_, v)| *v).collect();
+            let (m, s) = stats::mean_std(&vals);
             let cv = if m > 0.0 { s / m } else { 0.0 };
             (i, m, s, cv)
         })
@@ -186,6 +187,9 @@ pub fn analyze(data: &ParsedData, threshold: f64) -> AnalysisResult {
         max_depth = max_d;
     }
 
+    // 趋势分析
+    let trend = crate::trend::analyze_trends(&all_funcs, &slow_indices, data);
+
     AnalysisResult {
         frame_count, total_events, durations, sorted_dur,
         min_ms, max_ms, mean_ms, std_ms,
@@ -196,5 +200,6 @@ pub fn analyze(data: &ParsedData, threshold: f64) -> AnalysisResult {
         caller_map, callee_map,
         top1_self, top3_self, top5_self, top10_self,
         critical_path, max_depth,
+        trend,
     }
 }
