@@ -5,6 +5,7 @@ use std::collections::HashMap;
 // ── 解析产物 ──
 
 pub struct ThreadDesc { pub name: String }
+pub struct FiberDesc { #[allow(dead_code)] pub id: u64 }
 pub struct EventDesc { pub name: String, pub file: String, #[allow(dead_code)] pub line: u32 }
 pub struct Event { pub start: i64, pub finish: i64, pub desc_idx: u32, pub self_ticks: i64, pub parent_idx: Option<usize> }
 pub struct Frame { pub thread_name: String, pub frame_start: i64, pub frame_finish: i64, pub events: Vec<Event> }
@@ -12,6 +13,8 @@ pub struct Block { pub type_: u16, #[allow(dead_code)] pub size: u32, pub payloa
 
 pub struct ParsedData {
     pub threads: Vec<ThreadDesc>,
+    #[allow(dead_code)]
+    pub fibers: Vec<FiberDesc>,
     pub evt_descs: Vec<EventDesc>,
     pub frames: Vec<Frame>,
     pub frequency: u64,

@@ -13,6 +13,7 @@ pub fn read_string(b: &[u8], o: usize) -> (String, usize) {
     (s, o + 4 + len)
 }
 
+#[allow(dead_code)]
 pub fn find_bytes(hay: &[u8], needle: &[u8], from: usize) -> Option<usize> {
     if needle.is_empty() || from + needle.len() > hay.len() { return None; }
     for i in from..=hay.len() - needle.len() {

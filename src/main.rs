@@ -1,6 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
 // opt_analyze — Optick .opt 性能分析器 (Rust 版)
-// 零外部依赖，纯 std 实现
 //
 // 用法: opt_analyze [文件.opt] [慢帧阈值ms]
 // 示例: opt_analyze "capture.opt" 100
@@ -16,6 +15,7 @@ mod report;
 
 use std::env;
 use std::fs;
+use std::io::Read;
 use std::time::Instant;
 
 struct Args {
@@ -30,15 +30,61 @@ fn parse_args() -> Args {
     Args { input, threshold }
 }
 
+/// 读取 .opt 文件，检测 gzip 压缩并自动解压
+/// 返回 (解压后的完整字节, 原始文件大小)
+fn read_opt(path: &str) -> (Vec<u8>, f64) {
+    let raw = fs::read(path).expect("无法读取文件");
+    let file_size_mb = raw.len() as f64 / 1_048_576.0;
+
+    // 文件头: magic(4) + version(2) + flags(2)
+    if raw.len() < 8 || u32::from_le_bytes([raw[0], raw[1], raw[2], raw[3]]) != 0xB50FB50F {
+        eprintln!("无效 Optick 文件");
+        std::process::exit(1);
+    }
+
+    let flags = u16::from_le_bytes([raw[6], raw[7]]);
+
+    // flags bit0: gzip 压缩; bit1: miniz/zlib 压缩
+    if flags & 1 != 0 {
+        // gzip: 跳过 8 字节 Optick 头，剩余是 gzip 流
+        let mut decoder = flate2::read::GzDecoder::new(&raw[8..]);
+        let mut decompressed = Vec::new();
+        decoder.read_to_end(&mut decompressed).expect("gzip 解压失败");
+
+        // 重建: 8 字节原始头 + 解压后的块数据
+        let mut buf = Vec::with_capacity(8 + decompressed.len());
+        buf.extend_from_slice(&raw[..8]);
+        // 清除压缩标志
+        buf[6] = 0;
+        buf[7] = 0;
+        buf.extend_from_slice(&decompressed);
+        (buf, file_size_mb)
+    } else if flags & 2 != 0 {
+        // miniz/zlib: 跳过 8 字节头，剩余是 zlib 流
+        let mut decoder = flate2::read::ZlibDecoder::new(&raw[8..]);
+        let mut decompressed = Vec::new();
+        decoder.read_to_end(&mut decompressed).expect("zlib 解压失败");
+
+        let mut buf = Vec::with_capacity(8 + decompressed.len());
+        buf.extend_from_slice(&raw[..8]);
+        buf[6] = 0;
+        buf[7] = 0;
+        buf.extend_from_slice(&decompressed);
+        (buf, file_size_mb)
+    } else {
+        (raw, file_size_mb)
+    }
+}
+
 fn main() {
     let args = parse_args();
 
     let t0 = Instant::now();
-    let buf = fs::read(&args.input).expect("无法读取文件");
+    let (buf, file_size_mb) = read_opt(&args.input);
     let t_read = t0.elapsed();
 
     let t1 = Instant::now();
-    let mut data = parser::parse(&buf);
+    let mut data = parser::parse(&buf, file_size_mb);
     let t_parse = t1.elapsed();
 
     let t2 = Instant::now();

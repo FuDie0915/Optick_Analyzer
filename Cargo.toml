@@ -3,6 +3,9 @@ name = "opt_analyze"
 version = "1.0.0"
 edition = "2021"
 
+[dependencies]
+flate2 = "1"
+
 [[bin]]
 name = "opt_analyze"
 path = "src/main.rs"
